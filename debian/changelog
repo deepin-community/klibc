@@ -1,14 +1,99 @@
-klibc (2.0.8.1-1+dde) UNRELEASED; urgency=medium
+klibc (2.0.13-2) unstable; urgency=medium
 
-  * update
+  * d/rules: Handle loong64 architecture (thanks to Peng Fan)
+    (Closes: #1053742)
 
- -- Debian Kernel Team <debian-kernel@lists.debian.org>  Tue, 26 Jul 2022 10:39:06 +0800
+ -- Ben Hutchings <benh@debian.org>  Tue, 24 Oct 2023 18:11:43 +0200
 
-klibc (2.0.8.1-1+dde) unstable; urgency=medium
+klibc (2.0.13-1) unstable; urgency=medium
 
-  * Add sunway support
+  * New upstream version:
+    - time: Use clock_* system calls for time-of-day and sleep
+      (Closes: #923098)
+    - Install command links as appropriate (LP: #2028571)
 
- -- Han Gao <gaohan@uniontech.com>  Wed, 11 May 2022 15:45:34 +0800
+ -- Ben Hutchings <benh@debian.org>  Mon, 31 Jul 2023 15:04:13 +0200
+
+klibc (2.0.12-1) unstable; urgency=medium
+
+  * New upstream version:
+    - mips64: Fix struct stat layout (Closes: #1030673)
+
+ -- Ben Hutchings <benh@debian.org>  Sun, 12 Feb 2023 23:57:04 +0100
+
+klibc (2.0.11-1) unstable; urgency=medium
+
+  * New upstream version:
+    - Kbuild: Properly disable executable stacks in static builds
+      (Closes: #1020883)
+    - fcntl: Fix build failure for some architectures with Linux 5.19
+      (fixes FTBFS on several architectures)
+
+  [ Debian Janitor ]
+  * Remove constraints unnecessary since buster:
+    + klibc-utils: Drop versioned constraint on initramfs-tools in Breaks.
+
+  [ Ben Hutchings ]
+  * lintian: Update override in libklibc for lintian 2.115
+
+ -- Ben Hutchings <benh@debian.org>  Sun, 02 Oct 2022 03:09:49 +0200
+
+klibc (2.0.10-4) unstable; urgency=medium
+
+  * d/control, d/rules: Remove ccache from $PATH instead of Build-Conflicting
+  * d/salsa-ci.yml: Add CI configuration for salsa.debian.org
+  * d/tests: Add klcc smoke test
+  * Fix header installation from out-of-tree build (Closes: #1004465)
+
+ -- Ben Hutchings <benh@debian.org>  Mon, 31 Jan 2022 00:28:16 +0100
+
+klibc (2.0.10-3) unstable; urgency=medium
+
+  * ia64: Fix out-of-tree build
+
+ -- Ben Hutchings <benh@debian.org>  Sat, 01 Jan 2022 16:55:44 +0100
+
+klibc (2.0.10-2) unstable; urgency=medium
+
+  * Use KCFLAGS to pass options to Kbuild, rather than CFLAGS and LDFLAGS
+    (fixes FTBFS on several architectures)
+
+ -- Ben Hutchings <benh@debian.org>  Fri, 31 Dec 2021 15:05:03 +0100
+
+klibc (2.0.10-1) unstable; urgency=medium
+
+  * New upstream version:
+    - Build fixes for Clang (Closes: #787063):
+      - Kbuild: Fix include path for Clang builds
+      - sparc64: Remove redundant/unsupported compiler option -mptr64
+      - s390: mmap: Change inline assembly to work with Clang
+  * debian/rules: Pass through $(CC), $(CC_FOR_BUILD), and $(LD) to ease
+    building with alternate toolchain
+  * debian/rules: Build under debian/build
+  * debian/rules: Put test output under debian/build
+  * Fix warnings from dh_missing:
+    - debian/not-installed: Note duplicate klibc-<hash>.so as not installed
+    - debian/libklibc-dev.manpages: Install klcc.1 from debian/tmp
+  * debian/*.{install,manpages}: Delete redundant debian/tmp/ prefixes
+  * libklibc-dev: Add generated perl dependency for klcc
+  * debian/*.lintian-overrides: Delete obsolete overrides
+  * debian/libklibc.lintian-overrides: Override
+    arch-dependent-file-not-in-arch-specific-directory
+  * Kbuild: Use provided CFLAGS, LDFLAGS
+  * debian/rules: Use -f{debug,macro}-prefix-map to keep build dir out of
+    binaries
+
+ -- Ben Hutchings <benh@debian.org>  Thu, 30 Dec 2021 21:54:47 +0100
+
+klibc (2.0.9-1) unstable; urgency=medium
+
+  * New upstream version
+  * armhf: Update compiler options for gcc 11 (Closes: #996906)
+  * sig{set,long}jmp: do not ignore sigsetjmp's second argument
+    (Closes: #988027)
+  * Fix implementation of utimes
+
+ -- Ben Hutchings <benh@debian.org>  Mon, 27 Dec 2021 00:17:05 +0100
 
 klibc (2.0.8-6.1) unstable; urgency=medium
 

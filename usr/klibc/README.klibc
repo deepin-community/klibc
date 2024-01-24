@@ -22,15 +22,14 @@ Cross-compiling
 
 If you're cross-compiling, you need to set KLIBCARCH to the
 appropriate architecture, and set CROSS_COMPILE to your toolchain
-prefix, on the "make" command line
+prefix, on the "make" command line.  You also need to set ARCH to the
+appropriate kernel architecture name on the "make headers_install"
+command line.
 
-IMPORTANT: if you're on a 64-bit machine with a 32-bit userland
-(ia64, mips64, ppc64 sparc64, s390x or x86_64), and you want to
-build the 32-bit version: you need to set KLIBCARCH to the 32-bit
-architecture as well as set up the linux/include/asm symlink to
-point to the 32-bit architecture.  Building the 32-bit architecture
-usually (but not always) produces smaller binaries, and is likely
-to be better tested.
+IMPORTANT: if you're on a 64-bit machine with a 32-bit userland, and
+you want to build the 32-bit version: you need to set KLIBCARCH to the
+32-bit architecture.  Building the 32-bit architecture usually (but
+not always) produces smaller binaries.
 
 If you are on ARM, and want to build a thumb version of the library
 (this is supported), change OPTFLAGS in arch/arm/MCONFIG to build
@@ -81,6 +80,12 @@ For i386 only:
 * CONFIG_REGPARM (bool): Optimise function calls by passing the first
   3 function parameters in registers.
 
+For mips64 only:
+
+* CONFIG_KLIBC_MIPS_USE_CB (bool): Use compact branch instructions.
+  This should be enabled when targetting MIPS R6 and must be disabled
+  for older MIPS ISAs.
+
 Building without kernel source
 ------------------------------
 
@@ -92,26 +97,18 @@ don't need the kernel source as well.  You can either:
 2. Set the KLIBCKERNELSRC variable on the "make" command line to
    point to the *parent* of the UAPI headers directory.
 
-Reproducible builds
--------------------
-
-Static libraries usually contain file timestamps, which are not
-reproducible.  Set KBUILD_REPRODUCIBLE=1 on the "make" command line to
-disable this.
-
 Architecture support
 ====================
 
 The following is the last known status of various architectures:
 
-   alpha:	 Mostly working
+   alpha:	 Working
    arm-thumb:	 Working
    arm:		 Working
    arm64:	 Working
-   avr32:	 Not yet ported
    h8300:	 Not yet ported
    i386:	 Working
-   ia64:	 Mostly working
+   ia64:	 Working
    m68k:	 Working
    mips:	 Working
    mips64:	 Working
@@ -119,10 +116,10 @@ The following is the last known status of various architectures:
    parisc64:	 Not yet ported
    ppc:		 Working
    ppc64:	 Working
+   riscv64:	 Working
    s390:	 Working
    s390x:	 Working
    sh:		 Working
-   sh64:	 Not yet ported
    sparc:	 Working
    sparc64:	 Working
    x86-64:	 Working
