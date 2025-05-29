@@ -16,6 +16,9 @@ KLIBCARCH := $(patsubst %el,%,$(DEB_HOST_ARCH_CPU))
 ifneq (,$(filter amd64 x32,$(DEB_HOST_ARCH)))
 KLIBCARCH := x86_64
 endif
+ifeq ($(DEB_HOST_ARCH),sw64)
+KLIBCARCH := sw_64
+endif
 ifeq ($(DEB_HOST_ARCH),armel)
 KLIBC_MAKEFLAGS := CONFIG_AEABI=y
 endif
