@@ -1,0 +1,1773 @@
+From ba247d7a3caa3ffc52f3818cbc1d6439c21882da Mon Sep 17 00:00:00 2001
+From: hudeng <hudeng@deepin.org>
+Date: Thu, 2 Jan 2025 07:13:33 +0000
+Subject: [PATCH] feat: add sw support
+
+---
+ usr/dash/eval.c                           |   4 +-
+ usr/include/arch/sw_64/klibc/archconfig.h |  15 +++
+ usr/include/arch/sw_64/klibc/archsetjmp.h |  33 +++++++
+ usr/include/arch/sw_64/klibc/archsignal.h |  16 +++
+ usr/include/arch/sw_64/klibc/archstat.h   |  28 ++++++
+ usr/include/arch/sw_64/machine/asm.h      |  44 +++++++++
+ usr/include/sys/elfcommon.h               |   1 +
+ usr/klibc/README.klibc                    |   1 +
+ usr/klibc/SYSCALLS.def                    |  40 ++++----
+ usr/klibc/arch/README.klibc.arch          |   1 +
+ usr/klibc/arch/sw_64/Kbuild               |  61 ++++++++++++
+ usr/klibc/arch/sw_64/MCONFIG              |  17 ++++
+ usr/klibc/arch/sw_64/README-gcc           |  22 +++++
+ usr/klibc/arch/sw_64/__divq.S             | 108 +++++++++++++++++++++
+ usr/klibc/arch/sw_64/__divq.ss            | 108 +++++++++++++++++++++
+ usr/klibc/arch/sw_64/__divqu.S            |  93 ++++++++++++++++++
+ usr/klibc/arch/sw_64/__divqu.ss           |  93 ++++++++++++++++++
+ usr/klibc/arch/sw_64/__remq.S             | 113 ++++++++++++++++++++++
+ usr/klibc/arch/sw_64/__remq.ss            | 113 ++++++++++++++++++++++
+ usr/klibc/arch/sw_64/__remqu.S            | 104 ++++++++++++++++++++
+ usr/klibc/arch/sw_64/__remqu.ss           | 104 ++++++++++++++++++++
+ usr/klibc/arch/sw_64/crt0.S               |  22 +++++
+ usr/klibc/arch/sw_64/divide.c             |  59 +++++++++++
+ usr/klibc/arch/sw_64/pipe.S               |  38 ++++++++
+ usr/klibc/arch/sw_64/setjmp.S             |  75 ++++++++++++++
+ usr/klibc/arch/sw_64/sigaction.c          |  16 +++
+ usr/klibc/arch/sw_64/sigreturn.S          |  18 ++++
+ usr/klibc/arch/sw_64/syscall.S            |  26 +++++
+ usr/klibc/arch/sw_64/sysdual.S            |  33 +++++++
+ usr/klibc/arch/sw_64/sysstub.ph           |  37 +++++++
+ usr/klibc/getpriority.c                   |   2 +-
+ 31 files changed, 1422 insertions(+), 23 deletions(-)
+ create mode 100644 usr/include/arch/sw_64/klibc/archconfig.h
+ create mode 100644 usr/include/arch/sw_64/klibc/archsetjmp.h
+ create mode 100644 usr/include/arch/sw_64/klibc/archsignal.h
+ create mode 100644 usr/include/arch/sw_64/klibc/archstat.h
+ create mode 100644 usr/include/arch/sw_64/machine/asm.h
+ create mode 100644 usr/klibc/arch/sw_64/Kbuild
+ create mode 100644 usr/klibc/arch/sw_64/MCONFIG
+ create mode 100644 usr/klibc/arch/sw_64/README-gcc
+ create mode 100644 usr/klibc/arch/sw_64/__divq.S
+ create mode 100644 usr/klibc/arch/sw_64/__divq.ss
+ create mode 100644 usr/klibc/arch/sw_64/__divqu.S
+ create mode 100644 usr/klibc/arch/sw_64/__divqu.ss
+ create mode 100644 usr/klibc/arch/sw_64/__remq.S
+ create mode 100644 usr/klibc/arch/sw_64/__remq.ss
+ create mode 100644 usr/klibc/arch/sw_64/__remqu.S
+ create mode 100644 usr/klibc/arch/sw_64/__remqu.ss
+ create mode 100644 usr/klibc/arch/sw_64/crt0.S
+ create mode 100644 usr/klibc/arch/sw_64/divide.c
+ create mode 100644 usr/klibc/arch/sw_64/pipe.S
+ create mode 100644 usr/klibc/arch/sw_64/setjmp.S
+ create mode 100644 usr/klibc/arch/sw_64/sigaction.c
+ create mode 100644 usr/klibc/arch/sw_64/sigreturn.S
+ create mode 100644 usr/klibc/arch/sw_64/syscall.S
+ create mode 100644 usr/klibc/arch/sw_64/sysdual.S
+ create mode 100644 usr/klibc/arch/sw_64/sysstub.ph
+
+diff --git a/usr/dash/eval.c b/usr/dash/eval.c
+index 145e0b4..8f93abf 100644
+--- a/usr/dash/eval.c
++++ b/usr/dash/eval.c
+@@ -80,7 +80,7 @@ int exitstatus;			/* exit status of last command */
+ int back_exitstatus;		/* exit status of backquoted command */
+ 
+ 
+-#if !defined(__alpha__) || (defined(__GNUC__) && __GNUC__ >= 3)
++#if !defined(__alpha__) || !defined(__sw_64__) || (defined(__GNUC__) && __GNUC__ >= 3)
+ STATIC
+ #endif
+ void evaltreenr(union node *, int) __attribute__ ((__noreturn__));
+@@ -319,7 +319,7 @@ exexit:
+ }
+ 
+ 
+-#if !defined(__alpha__) || (defined(__GNUC__) && __GNUC__ >= 3)
++#if !defined(__alpha__) || !defined(__sw_64__) || (defined(__GNUC__) && __GNUC__ >= 3)
+ STATIC
+ #endif
+ void evaltreenr(union node *n, int flags)
+diff --git a/usr/include/arch/sw_64/klibc/archconfig.h b/usr/include/arch/sw_64/klibc/archconfig.h
+new file mode 100644
+index 0000000..272fee0
+--- /dev/null
++++ b/usr/include/arch/sw_64/klibc/archconfig.h
+@@ -0,0 +1,15 @@
++/*
++ * include/arch/alpha/klibc/archconfig.h
++ *
++ * See include/klibc/sysconfig.h for the options that can be set in
++ * this file.
++ *
++ */
++
++#ifndef _KLIBC_ARCHCONFIG_H
++#define _KLIBC_ARCHCONFIG_H
++
++#define _KLIBC_USE_RT_SIG 1
++#define _KLIBC_STATFS_F_TYPE_64 0
++
++#endif				/* _KLIBC_ARCHCONFIG_H */
+diff --git a/usr/include/arch/sw_64/klibc/archsetjmp.h b/usr/include/arch/sw_64/klibc/archsetjmp.h
+new file mode 100644
+index 0000000..47638b3
+--- /dev/null
++++ b/usr/include/arch/sw_64/klibc/archsetjmp.h
+@@ -0,0 +1,33 @@
++/*
++ * arch/alpha/include/klibc/archsetjmp.h
++ */
++
++#ifndef _KLIBC_ARCHSETJMP_H
++#define _KLIBC_ARCHSETJMP_H
++
++struct __jmp_buf {
++	unsigned long __s0;
++	unsigned long __s1;
++	unsigned long __s2;
++	unsigned long __s3;
++	unsigned long __s4;
++	unsigned long __s5;
++	unsigned long __fp;
++	unsigned long __ra;
++	unsigned long __gp;
++	unsigned long __sp;
++
++	unsigned long __f2;
++	unsigned long __f3;
++	unsigned long __f4;
++	unsigned long __f5;
++	unsigned long __f6;
++	unsigned long __f7;
++	unsigned long __f8;
++	unsigned long __f9;
++};
++
++/* Must be an array so it will decay to a pointer when a function is called */
++typedef struct __jmp_buf jmp_buf[1];
++
++#endif				/* _KLIBC_ARCHSETJMP_H */
+diff --git a/usr/include/arch/sw_64/klibc/archsignal.h b/usr/include/arch/sw_64/klibc/archsignal.h
+new file mode 100644
+index 0000000..ef0428b
+--- /dev/null
++++ b/usr/include/arch/sw_64/klibc/archsignal.h
+@@ -0,0 +1,16 @@
++/*
++ * arch/alpha/include/klibc/archsignal.h
++ *
++ * Architecture-specific signal definitions
++ *
++ */
++
++#ifndef _KLIBC_ARCHSIGNAL_H
++#define _KLIBC_ARCHSIGNAL_H
++
++#include <asm/signal.h>
++/* No special stuff for this architecture */
++
++#define _NSIG           64
++#define NSIG            _NSIG
++#endif
+diff --git a/usr/include/arch/sw_64/klibc/archstat.h b/usr/include/arch/sw_64/klibc/archstat.h
+new file mode 100644
+index 0000000..66e29be
+--- /dev/null
++++ b/usr/include/arch/sw_64/klibc/archstat.h
+@@ -0,0 +1,28 @@
++#ifndef _KLIBC_ARCHSTAT_H
++#define _KLIBC_ARCHSTAT_H
++
++#include <klibc/stathelp.h>
++
++#define _STATBUF_ST_NSEC
++
++struct stat {
++	__stdev64	(st_dev);
++	unsigned long	st_ino;
++	__stdev64	(st_rdev);
++	long		st_size;
++	unsigned long	st_blocks;
++
++	unsigned int	st_mode;
++	unsigned int	st_uid;
++	unsigned int	st_gid;
++	unsigned int	st_blksize;
++	unsigned int	st_nlink;
++	unsigned int	__pad0;
++
++	struct timespec st_atim;
++	struct timespec st_mtim;
++	struct timespec st_ctim;
++  	long		__unused[3];
++};
++
++#endif
+diff --git a/usr/include/arch/sw_64/machine/asm.h b/usr/include/arch/sw_64/machine/asm.h
+new file mode 100644
+index 0000000..c2ae4ed
+--- /dev/null
++++ b/usr/include/arch/sw_64/machine/asm.h
+@@ -0,0 +1,44 @@
++/*
++ * machine/asm.h
++ */
++
++#ifndef _MACHINE_ASM_H
++#define _MACHINE_ASM_H
++
++/* Standard aliases for Alpha register names */
++
++#define v0	$0
++#define t0	$1
++#define t1	$2
++#define t2	$3
++#define t3	$4
++#define t4	$5
++#define t5	$6
++#define t6	$7
++#define t7	$8
++#define s0	$9
++#define s1	$10
++#define s2	$11
++#define s3	$12
++#define s4	$13
++#define s5	$14
++#define fp	$15
++#define a0	$16
++#define a1	$17
++#define a2	$18
++#define a3	$19
++#define a4	$20
++#define a5	$21
++#define t8	$22
++#define t9	$23
++#define t10	$24
++#define t11	$25
++#define ra	$26
++#define t12	$27		/* t12 and pv are both used for $27 */
++#define pv	$27		/* t12 and pv are both used for $27 */
++#define at	$28
++#define gp	$29
++#define sp	$30
++#define zero	$31
++
++#endif				/* _MACHINE_ASM_H */
+diff --git a/usr/include/sys/elfcommon.h b/usr/include/sys/elfcommon.h
+index 603b0ce..77614fb 100644
+--- a/usr/include/sys/elfcommon.h
++++ b/usr/include/sys/elfcommon.h
+@@ -55,6 +55,7 @@
+ #define EM_CRIS         76
+ #define EM_V850         87
+ #define EM_ALPHA        0x9026	/* Interrim Alpha that stuck around */
++#define EM_SW_64        0x9916
+ #define EM_CYGNUS_V850  0x9080	/* Old v850 ID used by Cygnus */
+ #define EM_S390_OLD     0xA390	/* Obsolete interrim value for S/390 */
+ 
+diff --git a/usr/klibc/README.klibc b/usr/klibc/README.klibc
+index 1a9e09f..d98c362 100644
+--- a/usr/klibc/README.klibc
++++ b/usr/klibc/README.klibc
+@@ -123,6 +123,7 @@ The following is the last known status of various architectures:
+    sparc:	 Working
+    sparc64:	 Working
+    x86-64:	 Working
++   sw_64:        Working
+    xtensa:	 Not yet ported
+ 
+ Shared library support requires recent binutils on many architectures.
+diff --git a/usr/klibc/SYSCALLS.def b/usr/klibc/SYSCALLS.def
+index 9b6b112..017290f 100644
+--- a/usr/klibc/SYSCALLS.def
++++ b/usr/klibc/SYSCALLS.def
+@@ -30,22 +30,22 @@ void _exit,exit::_exit(int);
+  * stubs, due to the no-stack requirement.  These are the
+  * architectures which do not.
+  */
+-<alpha,ppc,ppc64,sh,s390,s390x> pid_t vfork();
++<alpha,sw_64,ppc,ppc64,sh,s390,s390x> pid_t vfork();
+ <sparc,sparc64> pid_t vfork@forkish();
+ #endif
+-<!alpha> pid_t getpid();
+-<alpha> pid_t getxpid@dual0::getpid();
++<!alpha,sw_64> pid_t getpid();
++<alpha,sw_64> pid_t getxpid@dual0::getpid();
+ int setpgid(pid_t, pid_t);
+ pid_t getpgid(pid_t);
+-<!alpha> pid_t getppid();
+-<alpha> pid_t getxpid@dual1::getppid();
++<!alpha,sw_64> pid_t getppid();
++<alpha,sw_64> pid_t getxpid@dual1::getppid();
+ pid_t setsid();
+ pid_t getsid(pid_t);
+ pid_t wait4(pid_t, int *, int, struct rusage *);
+ int execve(const char *, char * const *, char * const *);
+ <?> int nice(int);
+-<alpha,ia64> int getpriority(int, int);
+-<!alpha,ia64> int getpriority::__getpriority(int, int);
++<alpha,sw_64,ia64> int getpriority(int, int);
++<!alpha,sw_64,ia64> int getpriority::__getpriority(int, int);
+ int setpriority(int, int, int);
+ int getrusage(int, struct rusage *);
+ int sched_setscheduler(pid_t, int, const struct sched_param *);
+@@ -60,14 +60,14 @@ int sched_yield();
+  */
+ int setuid32,setuid::setuid(uid_t);
+ int setgid32,setgid::setgid(gid_t);
+-<!alpha> uid_t getuid32,getuid::getuid();
+-<alpha>  uid_t getxuid@dual0::getuid();
+-<!alpha> gid_t getgid32,getgid::getgid();
+-<alpha> gid_t getxgid@dual0::getgid();
+-<!alpha> uid_t geteuid32,geteuid::geteuid();
+-<alpha> uid_t getxuid@dual1::geteuid();
+-<!alpha> gid_t getegid32,getegid::getegid();
+-<alpha> gid_t getxgid@dual1::getegid();
++<!alpha,sw_64> uid_t getuid32,getuid::getuid();
++<alpha,sw_64>  uid_t getxuid@dual0::getuid();
++<!alpha,sw_64> gid_t getgid32,getgid::getgid();
++<alpha,sw_64> gid_t getxgid@dual0::getgid();
++<!alpha,sw_64> uid_t geteuid32,geteuid::geteuid();
++<alpha,sw_64> uid_t getxuid@dual1::geteuid();
++<!alpha,sw_64> gid_t getegid32,getegid::getegid();
++<alpha,sw_64> gid_t getxgid@dual1::getegid();
+ int getgroups32,getgroups::getgroups(int, gid_t *);
+ int setgroups32,setgroups::setgroups(size_t, const gid_t *);
+ int setreuid32,setreuid::setreuid(uid_t, uid_t);
+@@ -86,8 +86,8 @@ int capset(cap_user_header_t, cap_user_data_t);
+  * Filesystem-related system calls
+  */
+ int mount(const char *, const char *, const char *, unsigned long, const void *);
+-<!alpha,ia64> int umount2(const char *, int);
+-<alpha,ia64> int umount::umount2(const char *, int);
++<!alpha,sw_64,ia64> int umount2(const char *, int);
++<alpha,sw_64,ia64> int umount::umount2(const char *, int);
+ <?> int pivot_root(const char *, const char *);
+ int sync();
+ #ifdef __NR_statfs64
+@@ -125,7 +125,7 @@ int fchmod(int, mode_t);
+ <?> int mkdir(const char *, mode_t);
+ <?> int mkdirat(int, const char *, mode_t);
+ <?> int rmdir(const char *);
+-<?!alpha,ia64,mips,mips64,sh,sparc,sparc64> int pipe(int *);
++<?!alpha,sw_64,ia64,mips,mips64,sh,sparc,sparc64> int pipe(int *);
+ int pipe2(int *, int);
+ mode_t umask(mode_t);
+ int chroot(const char *);
+@@ -188,9 +188,9 @@ ssize_t sendfile64,sendfile::sendfile(int, int, off_t *, size_t, off_t);
+ /*
+  * Signal operations
+  */
+-<!sparc,sparc64,alpha,ia64> int rt_sigaction::__rt_sigaction(int, const struct sigaction *, struct sigaction *, size_t);
++<!sparc,sparc64,alpha,ia64,sw_64> int rt_sigaction::__rt_sigaction(int, const struct sigaction *, struct sigaction *, size_t);
+ <sparc,sparc64> int rt_sigaction::____rt_sigaction(int, const struct sigaction *, struct sigaction *, void *, size_t);
+-<alpha> int rt_sigaction::____rt_sigaction(int, const struct sigaction *, struct sigaction *, size_t, void *);
++<alpha,sw_64> int rt_sigaction::____rt_sigaction(int, const struct sigaction *, struct sigaction *, size_t, void *);
+ <ia64> int rt_sigaction::____rt_sigaction(int, const struct sigaction *, struct sigaction *, size_t);
+ int rt_sigsuspend::__rt_sigsuspend(const sigset_t *, size_t);
+ int rt_sigpending::__rt_sigpending(sigset_t *, size_t);
+diff --git a/usr/klibc/arch/README.klibc.arch b/usr/klibc/arch/README.klibc.arch
+index 662b9d3..0b14717 100644
+--- a/usr/klibc/arch/README.klibc.arch
++++ b/usr/klibc/arch/README.klibc.arch
+@@ -22,6 +22,7 @@ The crt0.S assembly routine typically corresponds to the following
+ pseudo-C code.  In addition, each architecture needs any support
+ routines that gcc-generated code expects to find in the system library
+ -- Alpha, for example, needs divide subroutines.
++-- Sw_64, for example, needs divide subroutines.
+ 
+ The "getenvtest" test program is a very good test for proper crt0.S
+ functionality.
+diff --git a/usr/klibc/arch/sw_64/Kbuild b/usr/klibc/arch/sw_64/Kbuild
+new file mode 100644
+index 0000000..3c964b3
+--- /dev/null
++++ b/usr/klibc/arch/sw_64/Kbuild
+@@ -0,0 +1,61 @@
++# -*- makefile -*-
++#
++# arch/alpha/Makefile.inc
++#
++# Special rules for this architecture.  Note that this is actually
++# included from the main Makefile, and that pathnames should be
++# accordingly.
++#
++
++always  := crt0.o
++targets := crt0.o
++klib-y := pipe.o setjmp.o sigaction.o sigreturn.o syscall.o sysdual.o
++
++# Special CFLAGS for the divide code
++DIVCFLAGS = $(KLIBCREQFLAGS) $(KLIBCARCHREQFLAGS) \
++	-O3 -fomit-frame-pointer -fcall-saved-1 -fcall-saved-2 \
++	-fcall-saved-3 -fcall-saved-4 -fcall-saved-5 -fcall-saved-6 \
++	-fcall-saved-7 -fcall-saved-8 -ffixed-15 -fcall-saved-16 \
++	-fcall-saved-17 -fcall-saved-18 -fcall-saved-19 -fcall-saved-20 \
++	-fcall-saved-21 -fcall-saved-22 -ffixed-23 -fcall-saved-24 \
++	-ffixed-25 -ffixed-27
++
++div-objs += __divlu.o __remlu.o __divl.o __reml.o
++div-objs += __divwu.o __remwu.o __divw.o __remw.o
++klib-y += $(div-objs)
++
++quiet_cmd_regswap = REGSWAP $@
++      cmd_regswap = sed -e 's/\$$0\b/$$27/g'  -e 's/\$$24\b/$$99/g' \
++                        -e 's/\$$16\b/$$24/g' -e 's/\$$17\b/$$25/g' \
++                        -e 's/\$$26\b/$$23/g' -e 's/\$$99\b/$$16/g' < $< > $@
++
++# Use static pattern rule to avoid using a temporary file
++$(addprefix $(obj)/,$(div-objs:.o=.S)): $(obj)/%.S: $(obj)/%.ss
++	$(call if_changed,regswap)
++
++quiet_cmd_genss = DIV-CC  $@
++      cmd_genss = $(CC) $(DIVCFLAGS) $(FILE_CFLAGS) \
++                        -DNAME=$(basename $(notdir $@)) -S -o $@ $<
++
++$(obj)/%.ss: $(obj)/divide.c
++	$(call if_changed,genss)
++
++#$(obj)/__divqu.ss: FILE_CFLAGS := -DSIGNED=0 -DREM=0 -DBITS=64
++#$(obj)/__remqu.ss: FILE_CFLAGS := -DSIGNED=0 -DREM=1 -DBITS=64
++#$(obj)/__divq.ss:  FILE_CFLAGS := -DSIGNED=1 -DREM=0 -DBITS=64
++#$(obj)/__remq.ss:  FILE_CFLAGS := -DSIGNED=1 -DREM=1 -DBITS=64
++#$(obj)/__divlu.ss: FILE_CFLAGS := -DSIGNED=0 -DREM=0 -DBITS=32
++#$(obj)/__remlu.ss: FILE_CFLAGS := -DSIGNED=0 -DREM=1 -DBITS=32
++#$(obj)/__divl.ss:  FILE_CFLAGS := -DSIGNED=1 -DREM=0 -DBITS=32
++#$(obj)/__reml.ss:  FILE_CFLAGS := -DSIGNED=1 -DREM=1 -DBITS=32
++
++$(obj)/__divlu.ss: FILE_CFLAGS := -DSIGNED=0 -DREM=0 -DBITS=64
++$(obj)/__remlu.ss: FILE_CFLAGS := -DSIGNED=0 -DREM=1 -DBITS=64
++$(obj)/__divl.ss:  FILE_CFLAGS := -DSIGNED=1 -DREM=0 -DBITS=64
++$(obj)/__reml.ss:  FILE_CFLAGS := -DSIGNED=1 -DREM=1 -DBITS=64
++$(obj)/__divwu.ss: FILE_CFLAGS := -DSIGNED=0 -DREM=0 -DBITS=32
++$(obj)/__remwu.ss: FILE_CFLAGS := -DSIGNED=0 -DREM=1 -DBITS=32
++$(obj)/__divw.ss:  FILE_CFLAGS := -DSIGNED=1 -DREM=0 -DBITS=32
++$(obj)/__remw.ss:  FILE_CFLAGS := -DSIGNED=1 -DREM=1 -DBITS=32
++
++targets     += $(div-objs:.o=.S) $(div-objs:.o=.ss)
+diff --git a/usr/klibc/arch/sw_64/MCONFIG b/usr/klibc/arch/sw_64/MCONFIG
+new file mode 100644
+index 0000000..567efa1
+--- /dev/null
++++ b/usr/klibc/arch/sw_64/MCONFIG
+@@ -0,0 +1,17 @@
++# -*- makefile -*-
++#
++# arch/alpha/MCONFIG
++#
++# Build configuration for this architecture
++#
++
++KLIBCOPTFLAGS += -Os
++KLIBCBITSIZE  = 64
++
++# Extra linkflags when building the shared version of the library
++# This address needs to be reachable using normal inter-module
++# calls, and work on the memory models for this architecture
++# 7 GB - normal binaries start at 4.5 GB, and the stack is below
++# the binary.
++#KLIBCSHAREDFLAGS	= -Ttext 0x1c0000200
++KLIBCSHAREDFLAGS	= -Ttext-segment 0x1c0000000
+diff --git a/usr/klibc/arch/sw_64/README-gcc b/usr/klibc/arch/sw_64/README-gcc
+new file mode 100644
+index 0000000..1d0052f
+--- /dev/null
++++ b/usr/klibc/arch/sw_64/README-gcc
+@@ -0,0 +1,22 @@
++   The current Alpha chips don't provide hardware for integer
++   division.  The C compiler expects the functions
++
++        __divqu: 64-bit unsigned long divide
++        __remqu: 64-bit unsigned long remainder
++        __divq/__remq:   signed 64-bit
++        __divlu/__remlu: unsigned 32-bit
++        __divl/__reml:   signed 32-bit
++
++   These are not normal C functions: instead of the normal calling
++   sequence, these expect their arguments in registers t10 and t11, and
++   return the result in t12 (aka pv).  Register AT may be clobbered
++   (assembly temporary), anything else must be saved.
++
++   Furthermore, the return address is in t9 instead of ra.
++
++   Normal function	Divide functions
++   ---------------	----------------
++   v0 ($0)		t12/pv ($27)
++   a0 ($16)		t10 ($24)
++   a1 ($17)		t11 ($25)
++   ra ($26)		t9 ($23)
+diff --git a/usr/klibc/arch/sw_64/__divq.S b/usr/klibc/arch/sw_64/__divq.S
+new file mode 100644
+index 0000000..d271e31
+--- /dev/null
++++ b/usr/klibc/arch/sw_64/__divq.S
+@@ -0,0 +1,108 @@
++	.set noreorder
++	.set volatile
++	.set noat
++	.set nomacro
++	.arch sw6
++	.text
++	.align 2
++	.align 4
++	.globl __divq
++	.ent __divq
++$__divq..ng:
++__divq:
++	.frame $30,64,$23,0
++	.mask 0x503001e,-64
++$LFB0:
++	.cfi_startproc
++	ldi $30,-64($30)
++	.cfi_def_cfa_offset 64
++	stl $23,0($30)
++	stl $1,8($30)
++	stl $2,16($30)
++	stl $3,24($30)
++	stl $4,32($30)
++	stl $24,40($30)
++	stl $25,48($30)
++	stl $16,56($30)
++	.cfi_offset 26, -64
++	.cfi_offset 1, -56
++	.cfi_offset 2, -48
++	.cfi_offset 3, -40
++	.cfi_offset 4, -32
++	.cfi_offset 16, -24
++	.cfi_offset 17, -16
++	.cfi_offset 24, -8
++	.prologue 0
++	beq $25,$L17
++	subl $31,$24,$27
++	xor $25,$24,$3
++	selge $24,$24,$27,$27
++	mov $27,$24
++	blt $25,$L18
++$L5:
++	ldi $28,1($31)
++	.align 4
++$L7:
++	addl $25,$25,$25
++	addl $28,$28,$28
++	bge $25,$L7
++	mov $31,$27
++	beq $28,$L8
++	.align 4
++$L9:
++	cmpule $25,$24,$1
++	mov $31,$2
++	mov $31,$4
++	selne $1,$25,$2,$2
++	srl $25,1,$25
++	selne $1,$28,$4,$4
++	srl $28,1,$28
++	addl $27,$4,$27
++	subl $24,$2,$24
++	bne $28,$L9
++$L8:
++	subl $31,$27,$1
++	sellt $3,$1,$27,$27
++$L12:
++	ldl $23,0($30)
++	ldl $1,8($30)
++	ldl $2,16($30)
++	ldl $3,24($30)
++	ldl $4,32($30)
++	ldl $24,40($30)
++	ldl $25,48($30)
++	ldl $16,56($30)
++	ldi $30,64($30)
++	.cfi_remember_state
++	.cfi_restore 24
++	.cfi_restore 17
++	.cfi_restore 16
++	.cfi_restore 4
++	.cfi_restore 3
++	.cfi_restore 2
++	.cfi_restore 1
++	.cfi_restore 26
++	.cfi_def_cfa_offset 0
++	ret $31,($23),1
++	.align 4
++$L17:
++	.cfi_restore_state
++	ldi $16,-2($31)
++	.set	macro
++ # 28 "usr/klibc/arch/sw_64/divide.c" 1
++	sys_call 170
++ # 0 "" 2
++	.set	nomacro
++	mov $31,$27
++	br $31,$L12
++	.align 4
++$L18:
++	subl $31,$25,$25
++	cmplt $27,0,$27
++	bge $25,$L5
++	br $31,$L8
++	.cfi_endproc
++$LFE0:
++	.end __divq
++	.ident	"GCC: (GNU) 5.3.0"
++	.section	.note.GNU-stack,"",@progbits
+diff --git a/usr/klibc/arch/sw_64/__divq.ss b/usr/klibc/arch/sw_64/__divq.ss
+new file mode 100644
+index 0000000..223af83
+--- /dev/null
++++ b/usr/klibc/arch/sw_64/__divq.ss
+@@ -0,0 +1,108 @@
++	.set noreorder
++	.set volatile
++	.set noat
++	.set nomacro
++	.arch sw6
++	.text
++	.align 2
++	.align 4
++	.globl __divq
++	.ent __divq
++$__divq..ng:
++__divq:
++	.frame $30,64,$26,0
++	.mask 0x503001e,-64
++$LFB0:
++	.cfi_startproc
++	ldi $30,-64($30)
++	.cfi_def_cfa_offset 64
++	stl $26,0($30)
++	stl $1,8($30)
++	stl $2,16($30)
++	stl $3,24($30)
++	stl $4,32($30)
++	stl $16,40($30)
++	stl $17,48($30)
++	stl $24,56($30)
++	.cfi_offset 26, -64
++	.cfi_offset 1, -56
++	.cfi_offset 2, -48
++	.cfi_offset 3, -40
++	.cfi_offset 4, -32
++	.cfi_offset 16, -24
++	.cfi_offset 17, -16
++	.cfi_offset 24, -8
++	.prologue 0
++	beq $17,$L17
++	subl $31,$16,$0
++	xor $17,$16,$3
++	selge $16,$16,$0,$0
++	mov $0,$16
++	blt $17,$L18
++$L5:
++	ldi $28,1($31)
++	.align 4
++$L7:
++	addl $17,$17,$17
++	addl $28,$28,$28
++	bge $17,$L7
++	mov $31,$0
++	beq $28,$L8
++	.align 4
++$L9:
++	cmpule $17,$16,$1
++	mov $31,$2
++	mov $31,$4
++	selne $1,$17,$2,$2
++	srl $17,1,$17
++	selne $1,$28,$4,$4
++	srl $28,1,$28
++	addl $0,$4,$0
++	subl $16,$2,$16
++	bne $28,$L9
++$L8:
++	subl $31,$0,$1
++	sellt $3,$1,$0,$0
++$L12:
++	ldl $26,0($30)
++	ldl $1,8($30)
++	ldl $2,16($30)
++	ldl $3,24($30)
++	ldl $4,32($30)
++	ldl $16,40($30)
++	ldl $17,48($30)
++	ldl $24,56($30)
++	ldi $30,64($30)
++	.cfi_remember_state
++	.cfi_restore 24
++	.cfi_restore 17
++	.cfi_restore 16
++	.cfi_restore 4
++	.cfi_restore 3
++	.cfi_restore 2
++	.cfi_restore 1
++	.cfi_restore 26
++	.cfi_def_cfa_offset 0
++	ret $31,($26),1
++	.align 4
++$L17:
++	.cfi_restore_state
++	ldi $24,-2($31)
++	.set	macro
++ # 28 "usr/klibc/arch/sw_64/divide.c" 1
++	sys_call 170
++ # 0 "" 2
++	.set	nomacro
++	mov $31,$0
++	br $31,$L12
++	.align 4
++$L18:
++	subl $31,$17,$17
++	cmplt $0,0,$0
++	bge $17,$L5
++	br $31,$L8
++	.cfi_endproc
++$LFE0:
++	.end __divq
++	.ident	"GCC: (GNU) 5.3.0"
++	.section	.note.GNU-stack,"",@progbits
+diff --git a/usr/klibc/arch/sw_64/__divqu.S b/usr/klibc/arch/sw_64/__divqu.S
+new file mode 100644
+index 0000000..c06ddd8
+--- /dev/null
++++ b/usr/klibc/arch/sw_64/__divqu.S
+@@ -0,0 +1,93 @@
++	.set noreorder
++	.set volatile
++	.set noat
++	.set nomacro
++	.arch sw6
++	.text
++	.align 2
++	.align 4
++	.globl __divqu
++	.ent __divqu
++$__divqu..ng:
++__divqu:
++	.frame $30,64,$23,0
++	.mask 0x503000e,-64
++$LFB0:
++	.cfi_startproc
++	ldi $30,-64($30)
++	.cfi_def_cfa_offset 64
++	stl $23,0($30)
++	stl $1,8($30)
++	stl $2,16($30)
++	stl $3,24($30)
++	stl $24,32($30)
++	stl $25,40($30)
++	stl $16,48($30)
++	.cfi_offset 26, -64
++	.cfi_offset 1, -56
++	.cfi_offset 2, -48
++	.cfi_offset 3, -40
++	.cfi_offset 16, -32
++	.cfi_offset 17, -24
++	.cfi_offset 24, -16
++	.prologue 0
++	beq $25,$L2
++	ldi $28,1($31)
++	blt $25,$L19
++	.align 4
++$L12:
++	addl $25,$25,$25
++	addl $28,$28,$28
++	bge $25,$L12
++	mov $31,$27
++	beq $28,$L11
++	.align 4
++$L8:
++	cmpule $25,$24,$1
++	mov $31,$2
++	mov $31,$3
++	selne $1,$25,$2,$2
++	srl $25,1,$25
++	selne $1,$28,$3,$3
++	srl $28,1,$28
++	addl $27,$3,$27
++	subl $24,$2,$24
++	bne $28,$L8
++$L11:
++	ldl $23,0($30)
++	ldl $1,8($30)
++	ldl $2,16($30)
++	ldl $3,24($30)
++	ldl $24,32($30)
++	ldl $25,40($30)
++	ldl $16,48($30)
++	ldi $30,64($30)
++	.cfi_remember_state
++	.cfi_restore 24
++	.cfi_restore 17
++	.cfi_restore 16
++	.cfi_restore 3
++	.cfi_restore 2
++	.cfi_restore 1
++	.cfi_restore 26
++	.cfi_def_cfa_offset 0
++	ret $31,($23),1
++	.align 4
++$L2:
++	.cfi_restore_state
++	ldi $16,-2($31)
++	.set	macro
++ # 28 "usr/klibc/arch/sw_64/divide.c" 1
++	sys_call 170
++ # 0 "" 2
++	.set	nomacro
++	mov $31,$27
++	br $31,$L11
++$L19:
++	cmpule $25,$24,$27
++	br $31,$L11
++	.cfi_endproc
++$LFE0:
++	.end __divqu
++	.ident	"GCC: (GNU) 5.3.0"
++	.section	.note.GNU-stack,"",@progbits
+diff --git a/usr/klibc/arch/sw_64/__divqu.ss b/usr/klibc/arch/sw_64/__divqu.ss
+new file mode 100644
+index 0000000..9b40151
+--- /dev/null
++++ b/usr/klibc/arch/sw_64/__divqu.ss
+@@ -0,0 +1,93 @@
++	.set noreorder
++	.set volatile
++	.set noat
++	.set nomacro
++	.arch sw6
++	.text
++	.align 2
++	.align 4
++	.globl __divqu
++	.ent __divqu
++$__divqu..ng:
++__divqu:
++	.frame $30,64,$26,0
++	.mask 0x503000e,-64
++$LFB0:
++	.cfi_startproc
++	ldi $30,-64($30)
++	.cfi_def_cfa_offset 64
++	stl $26,0($30)
++	stl $1,8($30)
++	stl $2,16($30)
++	stl $3,24($30)
++	stl $16,32($30)
++	stl $17,40($30)
++	stl $24,48($30)
++	.cfi_offset 26, -64
++	.cfi_offset 1, -56
++	.cfi_offset 2, -48
++	.cfi_offset 3, -40
++	.cfi_offset 16, -32
++	.cfi_offset 17, -24
++	.cfi_offset 24, -16
++	.prologue 0
++	beq $17,$L2
++	ldi $28,1($31)
++	blt $17,$L19
++	.align 4
++$L12:
++	addl $17,$17,$17
++	addl $28,$28,$28
++	bge $17,$L12
++	mov $31,$0
++	beq $28,$L11
++	.align 4
++$L8:
++	cmpule $17,$16,$1
++	mov $31,$2
++	mov $31,$3
++	selne $1,$17,$2,$2
++	srl $17,1,$17
++	selne $1,$28,$3,$3
++	srl $28,1,$28
++	addl $0,$3,$0
++	subl $16,$2,$16
++	bne $28,$L8
++$L11:
++	ldl $26,0($30)
++	ldl $1,8($30)
++	ldl $2,16($30)
++	ldl $3,24($30)
++	ldl $16,32($30)
++	ldl $17,40($30)
++	ldl $24,48($30)
++	ldi $30,64($30)
++	.cfi_remember_state
++	.cfi_restore 24
++	.cfi_restore 17
++	.cfi_restore 16
++	.cfi_restore 3
++	.cfi_restore 2
++	.cfi_restore 1
++	.cfi_restore 26
++	.cfi_def_cfa_offset 0
++	ret $31,($26),1
++	.align 4
++$L2:
++	.cfi_restore_state
++	ldi $24,-2($31)
++	.set	macro
++ # 28 "usr/klibc/arch/sw_64/divide.c" 1
++	sys_call 170
++ # 0 "" 2
++	.set	nomacro
++	mov $31,$0
++	br $31,$L11
++$L19:
++	cmpule $17,$16,$0
++	br $31,$L11
++	.cfi_endproc
++$LFE0:
++	.end __divqu
++	.ident	"GCC: (GNU) 5.3.0"
++	.section	.note.GNU-stack,"",@progbits
+diff --git a/usr/klibc/arch/sw_64/__remq.S b/usr/klibc/arch/sw_64/__remq.S
+new file mode 100644
+index 0000000..93cd19f
+--- /dev/null
++++ b/usr/klibc/arch/sw_64/__remq.S
+@@ -0,0 +1,113 @@
++	.set noreorder
++	.set volatile
++	.set noat
++	.set nomacro
++	.arch sw6
++	.text
++	.align 2
++	.align 4
++	.globl __remq
++	.ent __remq
++$__remq..ng:
++__remq:
++	.frame $30,48,$23,0
++	.mask 0x5030006,-48
++$LFB0:
++	.cfi_startproc
++	ldi $30,-48($30)
++	.cfi_def_cfa_offset 48
++	stl $23,0($30)
++	stl $1,8($30)
++	stl $2,16($30)
++	stl $24,24($30)
++	stl $25,32($30)
++	stl $16,40($30)
++	.cfi_offset 26, -48
++	.cfi_offset 1, -40
++	.cfi_offset 2, -32
++	.cfi_offset 16, -24
++	.cfi_offset 17, -16
++	.cfi_offset 24, -8
++	.prologue 0
++	beq $25,$L20
++	subl $31,$24,$1
++	xor $25,$24,$27
++	sellt $24,$1,$24,$24
++	blt $25,$L21
++$L5:
++	ldi $28,1($31)
++	.align 4
++$L7:
++	addl $25,$25,$25
++	addl $28,$28,$28
++	bge $25,$L7
++	beq $28,$L8
++	.align 4
++$L9:
++	cmpule $25,$24,$1
++	srl $28,1,$28
++	mov $31,$2
++	selne $1,$25,$2,$2
++	srl $25,1,$25
++	subl $24,$2,$24
++	bne $28,$L9
++$L8:
++	subl $31,$24,$1
++	ldl $23,0($30)
++	ldl $2,16($30)
++	sellt $27,$1,$24,$24
++	ldl $25,32($30)
++	ldl $1,8($30)
++	ldl $16,40($30)
++	mov $24,$27
++	ldl $24,24($30)
++	ldi $30,48($30)
++	.cfi_remember_state
++	.cfi_restore 24
++	.cfi_restore 17
++	.cfi_restore 16
++	.cfi_restore 2
++	.cfi_restore 1
++	.cfi_restore 26
++	.cfi_def_cfa_offset 0
++	ret $31,($23),1
++	.align 4
++$L20:
++	.cfi_restore_state
++	ldi $16,-2($31)
++	.set	macro
++ # 28 "usr/klibc/arch/sw_64/divide.c" 1
++	sys_call 170
++ # 0 "" 2
++	.set	nomacro
++	ldl $23,0($30)
++	ldl $1,8($30)
++	mov $31,$27
++	ldl $2,16($30)
++	ldl $24,24($30)
++	ldl $25,32($30)
++	ldl $16,40($30)
++	ldi $30,48($30)
++	.cfi_remember_state
++	.cfi_restore 26
++	.cfi_restore 1
++	.cfi_restore 2
++	.cfi_restore 16
++	.cfi_restore 17
++	.cfi_restore 24
++	.cfi_def_cfa_offset 0
++	ret $31,($23),1
++	.align 4
++$L21:
++	.cfi_restore_state
++	subl $31,$25,$25
++	bge $25,$L5
++	cmplt $24,0,$1
++	sll $1,63,$1
++	subl $24,$1,$24
++	br $31,$L8
++	.cfi_endproc
++$LFE0:
++	.end __remq
++	.ident	"GCC: (GNU) 5.3.0"
++	.section	.note.GNU-stack,"",@progbits
+diff --git a/usr/klibc/arch/sw_64/__remq.ss b/usr/klibc/arch/sw_64/__remq.ss
+new file mode 100644
+index 0000000..7dbf063
+--- /dev/null
++++ b/usr/klibc/arch/sw_64/__remq.ss
+@@ -0,0 +1,113 @@
++	.set noreorder
++	.set volatile
++	.set noat
++	.set nomacro
++	.arch sw6
++	.text
++	.align 2
++	.align 4
++	.globl __remq
++	.ent __remq
++$__remq..ng:
++__remq:
++	.frame $30,48,$26,0
++	.mask 0x5030006,-48
++$LFB0:
++	.cfi_startproc
++	ldi $30,-48($30)
++	.cfi_def_cfa_offset 48
++	stl $26,0($30)
++	stl $1,8($30)
++	stl $2,16($30)
++	stl $16,24($30)
++	stl $17,32($30)
++	stl $24,40($30)
++	.cfi_offset 26, -48
++	.cfi_offset 1, -40
++	.cfi_offset 2, -32
++	.cfi_offset 16, -24
++	.cfi_offset 17, -16
++	.cfi_offset 24, -8
++	.prologue 0
++	beq $17,$L20
++	subl $31,$16,$1
++	xor $17,$16,$0
++	sellt $16,$1,$16,$16
++	blt $17,$L21
++$L5:
++	ldi $28,1($31)
++	.align 4
++$L7:
++	addl $17,$17,$17
++	addl $28,$28,$28
++	bge $17,$L7
++	beq $28,$L8
++	.align 4
++$L9:
++	cmpule $17,$16,$1
++	srl $28,1,$28
++	mov $31,$2
++	selne $1,$17,$2,$2
++	srl $17,1,$17
++	subl $16,$2,$16
++	bne $28,$L9
++$L8:
++	subl $31,$16,$1
++	ldl $26,0($30)
++	ldl $2,16($30)
++	sellt $0,$1,$16,$16
++	ldl $17,32($30)
++	ldl $1,8($30)
++	ldl $24,40($30)
++	mov $16,$0
++	ldl $16,24($30)
++	ldi $30,48($30)
++	.cfi_remember_state
++	.cfi_restore 24
++	.cfi_restore 17
++	.cfi_restore 16
++	.cfi_restore 2
++	.cfi_restore 1
++	.cfi_restore 26
++	.cfi_def_cfa_offset 0
++	ret $31,($26),1
++	.align 4
++$L20:
++	.cfi_restore_state
++	ldi $24,-2($31)
++	.set	macro
++ # 28 "usr/klibc/arch/sw_64/divide.c" 1
++	sys_call 170
++ # 0 "" 2
++	.set	nomacro
++	ldl $26,0($30)
++	ldl $1,8($30)
++	mov $31,$0
++	ldl $2,16($30)
++	ldl $16,24($30)
++	ldl $17,32($30)
++	ldl $24,40($30)
++	ldi $30,48($30)
++	.cfi_remember_state
++	.cfi_restore 26
++	.cfi_restore 1
++	.cfi_restore 2
++	.cfi_restore 16
++	.cfi_restore 17
++	.cfi_restore 24
++	.cfi_def_cfa_offset 0
++	ret $31,($26),1
++	.align 4
++$L21:
++	.cfi_restore_state
++	subl $31,$17,$17
++	bge $17,$L5
++	cmplt $16,0,$1
++	sll $1,63,$1
++	subl $16,$1,$16
++	br $31,$L8
++	.cfi_endproc
++$LFE0:
++	.end __remq
++	.ident	"GCC: (GNU) 5.3.0"
++	.section	.note.GNU-stack,"",@progbits
+diff --git a/usr/klibc/arch/sw_64/__remqu.S b/usr/klibc/arch/sw_64/__remqu.S
+new file mode 100644
+index 0000000..ee5e177
+--- /dev/null
++++ b/usr/klibc/arch/sw_64/__remqu.S
+@@ -0,0 +1,104 @@
++	.set noreorder
++	.set volatile
++	.set noat
++	.set nomacro
++	.arch sw6
++	.text
++	.align 2
++	.align 4
++	.globl __remqu
++	.ent __remqu
++$__remqu..ng:
++__remqu:
++	.frame $30,48,$23,0
++	.mask 0x5030006,-48
++$LFB0:
++	.cfi_startproc
++	ldi $30,-48($30)
++	.cfi_def_cfa_offset 48
++	stl $23,0($30)
++	stl $1,8($30)
++	stl $2,16($30)
++	stl $24,24($30)
++	stl $25,32($30)
++	stl $16,40($30)
++	.cfi_offset 26, -48
++	.cfi_offset 1, -40
++	.cfi_offset 2, -32
++	.cfi_offset 16, -24
++	.cfi_offset 17, -16
++	.cfi_offset 24, -8
++	.prologue 0
++	beq $25,$L2
++	ldi $28,1($31)
++	blt $25,$L21
++	.align 4
++$L12:
++	addl $25,$25,$25
++	addl $28,$28,$28
++	bge $25,$L12
++	beq $28,$L7
++	.align 4
++$L8:
++	cmpule $25,$24,$1
++	srl $28,1,$28
++	mov $31,$2
++	selne $1,$25,$2,$2
++	srl $25,1,$25
++	subl $24,$2,$24
++	bne $28,$L8
++$L7:
++	mov $24,$27
++	ldl $23,0($30)
++	ldl $1,8($30)
++	ldl $2,16($30)
++	ldl $24,24($30)
++	ldl $25,32($30)
++	ldl $16,40($30)
++	ldi $30,48($30)
++	.cfi_remember_state
++	.cfi_restore 24
++	.cfi_restore 17
++	.cfi_restore 16
++	.cfi_restore 2
++	.cfi_restore 1
++	.cfi_restore 26
++	.cfi_def_cfa_offset 0
++	ret $31,($23),1
++	.align 4
++$L2:
++	.cfi_restore_state
++	ldi $16,-2($31)
++	.set	macro
++ # 28 "usr/klibc/arch/sw_64/divide.c" 1
++	sys_call 170
++ # 0 "" 2
++	.set	nomacro
++	ldl $23,0($30)
++	ldl $1,8($30)
++	mov $31,$27
++	ldl $2,16($30)
++	ldl $24,24($30)
++	ldl $25,32($30)
++	ldl $16,40($30)
++	ldi $30,48($30)
++	.cfi_remember_state
++	.cfi_restore 26
++	.cfi_restore 1
++	.cfi_restore 2
++	.cfi_restore 16
++	.cfi_restore 17
++	.cfi_restore 24
++	.cfi_def_cfa_offset 0
++	ret $31,($23),1
++$L21:
++	.cfi_restore_state
++	cmpule $25,$24,$1
++	seleq $1,0,$25,$25
++	subl $24,$25,$24
++	br $31,$L7
++	.cfi_endproc
++$LFE0:
++	.end __remqu
++	.ident	"GCC: (GNU) 5.3.0"
++	.section	.note.GNU-stack,"",@progbits
+diff --git a/usr/klibc/arch/sw_64/__remqu.ss b/usr/klibc/arch/sw_64/__remqu.ss
+new file mode 100644
+index 0000000..e9e2add
+--- /dev/null
++++ b/usr/klibc/arch/sw_64/__remqu.ss
+@@ -0,0 +1,104 @@
++	.set noreorder
++	.set volatile
++	.set noat
++	.set nomacro
++	.arch sw6
++	.text
++	.align 2
++	.align 4
++	.globl __remqu
++	.ent __remqu
++$__remqu..ng:
++__remqu:
++	.frame $30,48,$26,0
++	.mask 0x5030006,-48
++$LFB0:
++	.cfi_startproc
++	ldi $30,-48($30)
++	.cfi_def_cfa_offset 48
++	stl $26,0($30)
++	stl $1,8($30)
++	stl $2,16($30)
++	stl $16,24($30)
++	stl $17,32($30)
++	stl $24,40($30)
++	.cfi_offset 26, -48
++	.cfi_offset 1, -40
++	.cfi_offset 2, -32
++	.cfi_offset 16, -24
++	.cfi_offset 17, -16
++	.cfi_offset 24, -8
++	.prologue 0
++	beq $17,$L2
++	ldi $28,1($31)
++	blt $17,$L21
++	.align 4
++$L12:
++	addl $17,$17,$17
++	addl $28,$28,$28
++	bge $17,$L12
++	beq $28,$L7
++	.align 4
++$L8:
++	cmpule $17,$16,$1
++	srl $28,1,$28
++	mov $31,$2
++	selne $1,$17,$2,$2
++	srl $17,1,$17
++	subl $16,$2,$16
++	bne $28,$L8
++$L7:
++	mov $16,$0
++	ldl $26,0($30)
++	ldl $1,8($30)
++	ldl $2,16($30)
++	ldl $16,24($30)
++	ldl $17,32($30)
++	ldl $24,40($30)
++	ldi $30,48($30)
++	.cfi_remember_state
++	.cfi_restore 24
++	.cfi_restore 17
++	.cfi_restore 16
++	.cfi_restore 2
++	.cfi_restore 1
++	.cfi_restore 26
++	.cfi_def_cfa_offset 0
++	ret $31,($26),1
++	.align 4
++$L2:
++	.cfi_restore_state
++	ldi $24,-2($31)
++	.set	macro
++ # 28 "usr/klibc/arch/sw_64/divide.c" 1
++	sys_call 170
++ # 0 "" 2
++	.set	nomacro
++	ldl $26,0($30)
++	ldl $1,8($30)
++	mov $31,$0
++	ldl $2,16($30)
++	ldl $16,24($30)
++	ldl $17,32($30)
++	ldl $24,40($30)
++	ldi $30,48($30)
++	.cfi_remember_state
++	.cfi_restore 26
++	.cfi_restore 1
++	.cfi_restore 2
++	.cfi_restore 16
++	.cfi_restore 17
++	.cfi_restore 24
++	.cfi_def_cfa_offset 0
++	ret $31,($26),1
++$L21:
++	.cfi_restore_state
++	cmpule $17,$16,$1
++	seleq $1,0,$17,$17
++	subl $16,$17,$16
++	br $31,$L7
++	.cfi_endproc
++$LFE0:
++	.end __remqu
++	.ident	"GCC: (GNU) 5.3.0"
++	.section	.note.GNU-stack,"",@progbits
+diff --git a/usr/klibc/arch/sw_64/crt0.S b/usr/klibc/arch/sw_64/crt0.S
+new file mode 100644
+index 0000000..3a36ac8
+--- /dev/null
++++ b/usr/klibc/arch/sw_64/crt0.S
+@@ -0,0 +1,22 @@
++#
++# arch/alpha/crt0.S
++#
++
++	.text
++	.type	_start,@function
++	.ent	_start, 0
++	.globl	_start
++_start:
++	.frame  $30, 0, $26, 0
++	mov	$31, $15
++	br	$29, 1f
++1:	ldgp	$29, 0($29)
++	.prologue 0
++
++	ldi	$16, 0($30)		# ELF data structure
++	ldi	$17, 0($0)		# atexit pointer
++
++	call	$26, __libc_init
++
++	.size	_start,.-_start
++	.end	_start
+diff --git a/usr/klibc/arch/sw_64/divide.c b/usr/klibc/arch/sw_64/divide.c
+new file mode 100644
+index 0000000..16047ea
+--- /dev/null
++++ b/usr/klibc/arch/sw_64/divide.c
+@@ -0,0 +1,59 @@
++#include <stdint.h>
++#include <asm/gentrap.h>
++#include <asm/hmcall.h>
++
++#if BITS == 64
++typedef uint64_t uint;
++typedef int64_t sint;
++#else
++typedef uint32_t uint;
++typedef int32_t sint;
++#endif
++
++#ifdef SIGNED
++typedef sint xint;
++#else
++typedef uint xint;
++#endif
++
++xint NAME(uint num, uint den)
++{
++	uint quot = 0, qbit = 1;
++	int minus = 0;
++	xint v;
++
++	if (den == 0) {
++		/* This is really $16, but $16 and $24 are exchanged by a script */
++		register unsigned long cause asm("$24") = GEN_INTDIV;
++		asm volatile ("sys_call %0"::"i" (HMC_gentrap), "r"(cause));
++		return 0;	/* If trap returns... */
++	}
++#if SIGNED
++	if ((sint) (num ^ den) < 0)
++		minus = 1;
++	if ((sint) num < 0)
++		num = -num;
++	if ((sint) den < 0)
++		den = -den;
++#endif
++
++	/* Left-justify denominator and count shift */
++	while ((sint) den >= 0) {
++		den <<= 1;
++		qbit <<= 1;
++	}
++
++	while (qbit) {
++		if (den <= num) {
++			num -= den;
++			quot += qbit;
++		}
++		den >>= 1;
++		qbit >>= 1;
++	}
++
++	v = (xint) (REM ? num : quot);
++	if (minus)
++		v = -v;
++	return v;
++}
+diff --git a/usr/klibc/arch/sw_64/pipe.S b/usr/klibc/arch/sw_64/pipe.S
+new file mode 100644
+index 0000000..3a6246e
+--- /dev/null
++++ b/usr/klibc/arch/sw_64/pipe.S
+@@ -0,0 +1,38 @@
++#
++# arch/alpha/pipe.S
++#
++
++#
++# pipe() on alpha returns both file descriptors in registers --
++# $0 (v0) and $20 (a4) respectively.  This is unlike any other system call,
++# as far as I can tell.
++#
++
++#include <asm/unistd.h>
++#include <machine/asm.h>
++
++	.text
++	.align	3
++	.type	pipe, @function
++	.ent	pipe, 0
++	.globl	pipe
++pipe:
++	.frame	sp,0,ra,0
++	ldi	v0, __NR_pipe
++	callsys
++	beq	a3, 1f
++	br	pv, 2f			# pv <- pc
++2:
++	ldgp	gp, 0(pv)
++	ldi	a1, errno
++	ldi	v0, -1(zero)
++	stl	a3, 0(a1)
++	ret	zero,(ra),1
++1:
++	stl	v0, 0(a0)
++	ldi	v0, 0
++	stl	a4, 4(a0)
++	ret	zero,(ra),1
++
++	.size	pipe,.-pipe
++	.end	pipe
+diff --git a/usr/klibc/arch/sw_64/setjmp.S b/usr/klibc/arch/sw_64/setjmp.S
+new file mode 100644
+index 0000000..7a69bfa
+--- /dev/null
++++ b/usr/klibc/arch/sw_64/setjmp.S
+@@ -0,0 +1,75 @@
++#
++# setjmp.S
++#
++
++#
++# The jmp_buf looks like:
++#
++#	s0..5
++#	fp
++#	ra
++#	gp
++#	sp
++#
++
++#include <machine/asm.h>
++
++	.text
++	.align	3
++	.type	setjmp,@function
++	.ent	setjmp, 0
++	.globl	setjmp
++setjmp:
++	ldi	v0,   0(zero)
++	stl	s0,   0(a0)
++	stl	s1,   8(a0)
++	stl	s2,  16(a0)
++	stl	s3,  24(a0)
++	stl	s4,  32(a0)
++	stl	s5,  40(a0)
++	stl	fp,  48(a0)
++	stl	ra,  56(a0)
++	stl	gp,  64(a0)
++	stl	sp,  72(a0)
++	fstd	$f2,  80(a0)
++	fstd	$f3,  88(a0)
++	fstd	$f4,  96(a0)
++	fstd	$f5, 104(a0)
++	fstd	$f6, 112(a0)
++	fstd	$f7, 120(a0)
++	fstd	$f8, 128(a0)
++	fstd	$f9, 136(a0)
++	ret	zero,(ra),1
++
++	.size setjmp,.-setjmp
++	.end setjmp
++
++	.type	longjmp,@function
++	.ent	longjmp, 0
++	.globl	longjmp
++longjmp:
++	mov	a1, v0
++	ldl	s0,   0(a0)
++	ldl	s1,   8(a0)
++	ldl	s2,  16(a0)
++	ldl	s3,  24(a0)
++	ldl	s4,  32(a0)
++	ldl	s5,  40(a0)
++	ldl	fp,  48(a0)
++	ldl	ra,  56(a0)
++	ldl	gp,  64(a0)
++	ldl	sp,  72(a0)
++	fldd	$f2,  80(a0)
++	fldd	$f3,  88(a0)
++	fldd	$f4,  96(a0)
++	fldd	$f5, 104(a0)
++	fldd	$f6, 112(a0)
++	fldd	$f7, 120(a0)
++	fldd	$f8, 128(a0)
++	fldd	$f9, 136(a0)
++	/* We're bound to get a mispredict here, but at least give us
++	   a chance to get the return stack back in sync... */
++	ret	zero,(ra),1
++
++	.size longjmp,.-longjmp
++	.end longjmp
+diff --git a/usr/klibc/arch/sw_64/sigaction.c b/usr/klibc/arch/sw_64/sigaction.c
+new file mode 100644
+index 0000000..53e830b
+--- /dev/null
++++ b/usr/klibc/arch/sw_64/sigaction.c
+@@ -0,0 +1,16 @@
++/*
++ * sigaction.c
++ */
++
++#include <signal.h>
++#include <sys/syscall.h>
++
++__extern void __sigreturn(void);
++__extern int ____rt_sigaction(int, const struct sigaction *, struct sigaction *,
++			      size_t, void (*)(void));
++
++int __rt_sigaction(int sig, const struct sigaction *act,
++		   struct sigaction *oact, size_t size)
++{
++	return ____rt_sigaction(sig, act, oact, size, &__sigreturn);
++}
+diff --git a/usr/klibc/arch/sw_64/sigreturn.S b/usr/klibc/arch/sw_64/sigreturn.S
+new file mode 100644
+index 0000000..8f4f7c0
+--- /dev/null
++++ b/usr/klibc/arch/sw_64/sigreturn.S
+@@ -0,0 +1,18 @@
++/*
++ * arch/sw_64/sigreturn.S
++ */
++
++#include <machine/asm.h>
++#include <asm/unistd.h>
++
++	.text
++	.align	3
++	.type	__sigreturn,@function
++	.ent	__sigreturn,0
++	.globl	__sigreturn
++__sigreturn:
++	mov	sp,a0			# struct sigcontext on stack
++	ldi	v0,__NR_rt_sigreturn(zero)
++	sys_call 0x83
++	.size	__sigreturn,.-__sigreturn
++	.end	__sigreturn
+diff --git a/usr/klibc/arch/sw_64/syscall.S b/usr/klibc/arch/sw_64/syscall.S
+new file mode 100644
+index 0000000..9d7a62f
+--- /dev/null
++++ b/usr/klibc/arch/sw_64/syscall.S
+@@ -0,0 +1,26 @@
++#
++# arch/alpha/syscall.S
++#
++
++#include <machine/asm.h>
++
++	.text
++	.align	3
++	.type	__syscall_common,@function
++	.ent	__syscall_common, 0
++	.globl	__syscall_common
++__syscall_common:
++	.frame	sp,0,ra,0
++	callsys
++	beq	a3, 1f
++	br	pv, 2f			# pv <- pc
++2:
++	ldgp	gp, 0(pv)
++	ldi	a1, errno
++	stl	v0, 0(a1)
++	ldi	v0, -1(zero)
++1:
++	ret	zero,(ra),1
++
++	.size	__syscall_common,.-__syscall_common
++	.end	__syscall_common
+diff --git a/usr/klibc/arch/sw_64/sysdual.S b/usr/klibc/arch/sw_64/sysdual.S
+new file mode 100644
+index 0000000..9737366
+--- /dev/null
++++ b/usr/klibc/arch/sw_64/sysdual.S
+@@ -0,0 +1,33 @@
++#
++# arch/alpha/sysdual.S
++#
++
++#
++# Some system calls have an alternate return value in r20 (a4).
++# This system call stub is for system calls where that is
++# the "real" return value.
++#
++
++#include <machine/asm.h>
++
++	.text
++	.align	3
++	.type	__syscall_dual1,@function
++	.ent	__syscall_dual1, 0
++	.globl	__syscall_dual1
++__syscall_dual1:
++	.frame	sp,0,ra,0
++	callsys
++	mov	v0, a4
++	beq	a3, 1f
++	br	pv, 2f			# pv <- pc
++2:
++	ldgp	gp, 0(pv)
++	ldi	a1, errno
++	ldi	v0, -1(zero)
++	stl	a3, 0(a1)
++1:
++	ret	zero,(ra),1
++
++	.size	__syscall_dual1,.-__syscall_dual1
++	.end	__syscall_dual1
+diff --git a/usr/klibc/arch/sw_64/sysstub.ph b/usr/klibc/arch/sw_64/sysstub.ph
+new file mode 100644
+index 0000000..7c44a6d
+--- /dev/null
++++ b/usr/klibc/arch/sw_64/sysstub.ph
+@@ -0,0 +1,37 @@
++# -*- perl -*-
++#
++# arch/alpha/sysstub.ph
++#
++# Script to generate system call stubs
++#
++
++# On Alpha, most system calls follow the standard convention, with the
++# system call number in r0 (v0), return an error value in r19 (a3) as
++# well as the return value in r0 (v0).
++#
++# A few system calls are dual-return with the second return value in
++# r20 (a4).
++
++sub make_sysstub($$$$$@) {
++    my($outputdir, $fname, $type, $sname, $stype, @args) = @_;
++
++    $stype = $stype || 'common';
++    $stype = 'common' if ( $stype eq 'dual0' );
++
++    open(OUT, '>', "${outputdir}/${fname}.S");
++    print OUT "#include <asm/unistd.h>\n";
++    print OUT "#include <machine/asm.h>\n";
++    print OUT "\n";
++    print OUT "\t.text\n";
++    print OUT "\t.type ${fname},\@function\n";
++    print OUT "\t.ent\t${fname}, 0\n"; # What is this?
++    print OUT "\t.globl ${fname}\n";
++    print OUT "${fname}:\n";
++    print OUT "\tldi\tv0, __NR_${sname}(zero)\n";
++    print OUT "\tbr __syscall_${stype}\n";
++    print OUT "\t.size\t${fname},.-${fname}\n";
++    print OUT "\t.end\t${fname}\n";
++    close(OUT);
++}
++
++1;
+diff --git a/usr/klibc/getpriority.c b/usr/klibc/getpriority.c
+index 01d6e06..2e9176c 100644
+--- a/usr/klibc/getpriority.c
++++ b/usr/klibc/getpriority.c
+@@ -10,7 +10,7 @@
+ #include <sys/resource.h>
+ #include <sys/syscall.h>
+ 
+-#if !defined(__alpha__) && !defined(__ia64__)
++#if !defined(__alpha__) && !defined(__sw_64__) && !defined(__ia64__)
+ 
+ extern int __getpriority(int, int);
+ 
+-- 
+2.43.4
+
