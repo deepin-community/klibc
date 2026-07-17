@@ -1,8 +1,9 @@
-klibc (2.0.13-4deepin1) unstable; urgency=medium
+klibc (2.0.14-1) unstable; urgency=medium
 
-  * feat: add sw64 support.
+  * New upstream version:
+    - parisc: Fix build with Linux 6.10+ (Closes: #1075820)
 
- -- hudeng <hudeng@deepin.org>  Thu, 29 May 2025 17:24:42 +0800
+ -- Ben Hutchings <benh@debian.org>  Tue, 04 Mar 2025 04:37:02 +0100
 
 klibc (2.0.13-4) unstable; urgency=medium
 
