@@ -1,3 +1,11 @@
+klibc (2.0.14-1deepin1) unstable; urgency=medium
+
+  * Restore deepin-specific patches from master branch:
+    - Add sw_64 architecture support (Sunway processor)
+    - Manually adapted for 2.0.14 due to SYSCALLS.def changes
+
+ -- lichenggang <lichenggang@uniontech.com>  Sat, 18 Jul 2026 20:25:00 +0800
+
 klibc (2.0.14-1) unstable; urgency=medium
 
   * New upstream version:
