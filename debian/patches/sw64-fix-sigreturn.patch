@@ -1,0 +1,17 @@
+Description: Fix sigreturn.S to use callsys instead of sys_call on sw_64
+ The sw_64 sigreturn.S used `sys_call 0x83` which is a trap instruction,
+ not a syscall instruction. rt_sigreturn is a syscall and should use
+ `callsys` like all other syscalls on sw_64 (and like alpha does).
+ Using the wrong instruction prevents signal delivery from working,
+ causing the sigint test to fail with "No signal received!".
+Author: Deepin CI
+--- a/usr/klibc/arch/sw_64/sigreturn.S
++++ b/usr/klibc/arch/sw_64/sigreturn.S
+@@ -14,6 +14,6 @@
+ __sigreturn:
+ 	mov	sp,a0			# struct sigcontext on stack
+ 	ldi	v0,__NR_rt_sigreturn(zero)
+-	sys_call 0x83
++	callsys
+ 	.size	__sigreturn,.-__sigreturn
+ 	.end	__sigreturn

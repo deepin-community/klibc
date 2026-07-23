@@ -1,0 +1,19 @@
+Description: Add _KLIBC_NEEDS_SA_SIGINFO for sw_64 architecture
+ sw_64 is based on alpha and uses the same ____rt_sigaction syscall
+ signature with a restorer function pointer. Like alpha, it needs
+ SA_SIGINFO to be set so the kernel correctly delivers signals to
+ the handler. Without this, the sigint test fails with "No signal
+ received!" because signal delivery doesn't work.
+Author: Deepin CI
+--- a/usr/include/arch/sw_64/klibc/archconfig.h
++++ b/usr/include/arch/sw_64/klibc/archconfig.h
+@@ -10,6 +10,9 @@
+ #define _KLIBC_ARCHCONFIG_H
+ 
+ #define _KLIBC_USE_RT_SIG 1
++
++/* We provide our own restorer that calls rt_sigreturn() */
++#define _KLIBC_NEEDS_SA_SIGINFO 1
+ #define _KLIBC_STATFS_F_TYPE_64 0
+ 
+ #endif				/* _KLIBC_ARCHCONFIG_H */
