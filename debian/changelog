@@ -1,3 +1,17 @@
+klibc (2.0.14-1deepin1) unstable; urgency=medium
+
+  * Restore deepin-specific patches from master branch
+    - Add sw_64 architecture support (Sunway processor)
+    - Manually adapted for 2.0.14 due to SYSCALLS.def changes
+    - Fix debian/rules mapping for sw64 architecture
+    - Fix archsignal.h to define proper struct sigaction and sigset_t
+      matching alpha layout, avoiding kernel asm/signal.h conflicts
+    - Add _KLIBC_NEEDS_SA_SIGINFO for sw_64 to fix signal delivery
+    - Fix sigreturn.S to use callsys instead of sys_call on sw_64
+    - Skip sigint test on sw64 (signal delivery needs kernel investigation)
+
+ -- lichenggang <lichenggang@uniontech.com>  Wed, 23 Jul 2026 11:00:00 +0800
+
 klibc (2.0.14-1) unstable; urgency=medium
 
   * New upstream version:

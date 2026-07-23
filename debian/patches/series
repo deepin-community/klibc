@@ -1,1 +1,5 @@
 klibc-kbuild-include-provided-kcflags-in-klibccflags.patch
+0001-feat-add-sw-support.patch
+sw64-fix-archsignal.patch
+sw64-add-sa-siginfo.patch
+sw64-fix-sigreturn.patch
